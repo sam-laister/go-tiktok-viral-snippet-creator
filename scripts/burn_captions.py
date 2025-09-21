@@ -16,15 +16,17 @@ def main():
     parser.add_argument("captions_file", help="Path to the captions srt file")
     parser.add_argument("video_file", help="Path to the video file to")
     parser.add_argument("audio_file", help="Path to the audio file to")
-    parser.add_argument("output_dir", help="Path to write output video to")
-    parser.add_argument("logs_dir", help="Path to write logs to")
+    parser.add_argument("output_file", help="Path to write output video to")
+    parser.add_argument("target_width", help="Target width for video", nargs='?', default=1080, type=int)
+    parser.add_argument("target_height", help="Target height for video", nargs='?', default=1920, type=int)
     args = parser.parse_args()
 
     captions_path = args.captions_file
     video_path = args.video_file
     audio_path = args.audio_file
-    output_dir = args.output_dir
-    logs_dir = args.logs_dir
+    output_path = args.output_file
+    target_width = args.target_width
+    target_height = args.target_height
 
     if not os.path.isfile(captions_path):
         sys.exit(f"Error: {captions_path} does not exist.")
@@ -34,11 +36,6 @@ def main():
 
     if not os.path.isfile(audio_path):
         sys.exit(f"Error: {audio_path} does not exist.")
-
-    os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(logs_dir, exist_ok=True)
-
-    output_file = f"{output_dir}/test.mp4"
 
     subtitle_style = (
         "FontName=Arial,"      # font
@@ -51,8 +48,6 @@ def main():
         "MarginV=20"           # vertical margin from bottom
     )
 
-    target_width = 1080
-    target_height = 1920
     target_aspect = target_width / target_height
 
     video = ffmpeg.input(video_path)
@@ -81,26 +76,16 @@ def main():
 
     command = (
         ffmpeg
-        .concat(
+        .output(
             video
-                .filter('crop', crop_width, crop_height, crop_x, crop_y)
-                .filter('scale', target_width, target_height)
-                .filter("subtitles", captions_path, force_style=subtitle_style),
-                audio,
-                v=1,
-                a=1,
-            )
-        .output(output_file)
+            .filter('crop', crop_width, crop_height, crop_x, crop_y)
+            .filter('scale', target_width, target_height)
+            .filter('subtitles', captions_path, force_style=subtitle_style),
+            audio,
+            output_path,
+            vcodec='libx264', acodec='aac'
+        )
     )
-
-    # command = (
-    #     ffmpeg
-    #     .input(video_path)
-    #
-    #     .filter('subtitles', captions_path)
-    #     .output(output_file, c_v='libx264', crf=23, preset='fast')
-    #     # .global_args('-report')
-    # )
 
     command.overwrite_output().run()
 

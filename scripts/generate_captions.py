@@ -26,19 +26,21 @@ def main():
 
     if not os.path.isfile(input_path):
         sys.exit(f"Error: {input_path} does not exist.")
-    os.makedirs(output_file, exist_ok=True)
+
+    output_base  = os.path.dirname(output_file)
+    output_filename = os.path.basename(output_file)
+
+    os.makedirs(output_base, exist_ok=True)
 
     print(f"Loading Whisper model '{model_size}' … (first time may take a while)")
     model = whisper.load_model(model_size)
 
     print(f"Transcribing {input_path} …")
-    # transcribe() automatically converts video to audio if needed
     result = model.transcribe(input_path, verbose=True)
 
-    print(f"Writing captions to {output_file}")
-
-    writer = whisper.utils.get_writer("srt", output_file)
-    writer(result, output_file)
+    print(f"Writing captions to {output_base}/{output_filename}")
+    writer = whisper.utils.get_writer("srt", output_base)
+    writer(result, output_filename)
 
     print("Done!")
 

@@ -7,25 +7,32 @@ import (
 )
 
 type ClipDTO struct {
+	AudioInputPath string  `json:"AudioInputPath"`
+	VideoInputPath string  `json:"VideoInputPath"`
 	SRTCaptionPath *string `json:"SRTCaptionPath"`
-	InputPath      *string `json:"InputPath"`
 	OutputPath     *string `json:"OutputPath"`
 }
 
 func NewClipDTO(
+	audioInputPath,
+	videoInputPath string,
 	srtCaptionPath,
-	inputPath,
 	outputPath *string,
 ) *ClipDTO {
 	return &ClipDTO{
+		audioInputPath,
+		videoInputPath,
 		srtCaptionPath,
-		inputPath,
 		outputPath,
 	}
 }
 
-func (clip *ClipDTO) IsValidInputPath() bool {
-	return clip.InputPath != nil || *clip.InputPath != ""
+func (clip *ClipDTO) IsValidAudioInputPath() bool {
+	return clip.AudioInputPath != ""
+}
+
+func (clip *ClipDTO) IsValidVideoInputPath() bool {
+	return clip.VideoInputPath != ""
 }
 
 func (clip *ClipDTO) IsValidOutputPath() bool {
@@ -37,7 +44,8 @@ func (clip *ClipDTO) IsValidSRTCaptionPath() bool {
 }
 
 func (clip *ClipDTO) PrintTable() error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	const tablePadding = 2
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, tablePadding, ' ', 0)
 
 	printRow := func(field, val string) error {
 		_, err := fmt.Fprintf(w, "%s\t%s\n", field, val)
@@ -61,7 +69,10 @@ func (clip *ClipDTO) PrintTable() error {
 	if err := printRow("SRTCaptionPath", get(clip.SRTCaptionPath)); err != nil {
 		return err
 	}
-	if err := printRow("InputPath", get(clip.InputPath)); err != nil {
+	if err := printRow("AudioInputPath", get(&clip.AudioInputPath)); err != nil {
+		return err
+	}
+	if err := printRow("VideoInputPath", get(&clip.VideoInputPath)); err != nil {
 		return err
 	}
 	if err := printRow("OutputPath", get(clip.OutputPath)); err != nil {
