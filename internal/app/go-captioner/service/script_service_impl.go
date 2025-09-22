@@ -24,7 +24,7 @@ func (w ScriptServiceImpl) Transcribe(
 	app := "./scripts/generate_captions.py"
 
 	t := time.Now().Unix()
-	outputFile := fmt.Sprintf("%s/%d.srt", outputDir, t)
+	outputFile := fmt.Sprintf("%s/%d.ass", outputDir, t)
 
 	args := []string{inputFile, outputFile, "--model", model}
 	cmd := exec.CommandContext(context.Background(), app, args...)
