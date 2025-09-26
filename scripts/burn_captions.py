@@ -9,6 +9,7 @@ Usage:
 import argparse
 import os
 import sys
+import random
 import ffmpeg
 
 def main():
@@ -35,7 +36,19 @@ def main():
         sys.exit("Error: --end must be greater than --start")
     clip_duration = args.end - args.start
 
+    # Probe duration and choose random start within bounds
+    meta = ffmpeg.probe(args.video_file)
+    total_duration = float(meta.get("format", {}).get("duration", 0.0))
+    if not total_duration:
+        vstream = next(s for s in meta["streams"] if s["codec_type"] == "video")
+        total_duration = float(vstream.get("duration", 0.0))
+    if total_duration and clip_duration > total_duration:
+        clip_duration = total_duration
+    max_start = max(0.0, total_duration - clip_duration)
+    trim_start = round(random.uniform(0.0, max_start), 3)
+
     print(f"Clip duration: {clip_duration}s")
+    print(f"Random start: {trim_start}s of total {total_duration}s")
 
     target_aspect = args.target_width / args.target_height
 
@@ -55,7 +68,7 @@ def main():
 
     video = (
         ffmpeg
-        .input(args.video_file)
+        .input(args.video_file, ss=trim_start, t=clip_duration)
         .video
         .filter("crop", crop_w, crop_h, crop_x, crop_y)
         .filter("scale", args.target_width, args.target_height)
