@@ -1,5 +1,5 @@
 /*
-Copyright © 2025 NAME HERE <EMAIL ADDRESS>
+Copyright © 2025 Sam Laister <laister.sam@gmail.com>
 */
 package cmd
 
@@ -19,26 +19,23 @@ var captionCmd = &cobra.Command{
 	Short: "Generates captions for an audio file.",
 	Long:  `Generates captions for an audio file.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		whisperService := service.NewWhisperServiceImpl()
+		whisperService := service.NewScriptServiceImpl()
+
+		var targetWidth = 1080
+		var targetHeight = 1920
+		var fadeDuration = 5
 
 		fmt.Println("Verbose: ", verbose)
 
 		var clipQueue []*model.ClipDTO
 
-		if isDirectory {
-			if !helper.IsDirectory(path) {
-				return errors.New(fmt.Sprintf("%s is not a directory", path))
-			}
-
-			files, err := helper.GetFilesInDirectory(path)
-			if err != nil {
-				return errors.New(fmt.Sprintf("couldn't get files in %s", path))
-			}
-
-			clipQueue = helper.InputPathArrayToClips(files)
-		} else {
-			clipQueue = append(clipQueue, helper.ClipFromInputPath(path))
-		}
+		clipQueue = append(clipQueue, model.NewClipDTO(
+			audioPath,
+			videoPath,
+			nil,
+			nil,
+			nil,
+		))
 
 		if !helper.IsValidClipQueue(clipQueue) {
 			return errors.New("found no files to analyze")
@@ -49,11 +46,22 @@ var captionCmd = &cobra.Command{
 		}
 
 		for _, clip := range clipQueue {
-			if !clip.IsValidInputPath() {
-				return errors.New(fmt.Sprintf("%s is not a valid input path", *clip.InputPath))
+			if !clip.IsValidAudioInputPath() {
+				return errors.New(fmt.Sprintf("%s is not a valid input path", clip.AudioInputPath))
 			}
 
-			if err := helper.GenerateSRTCaptions(whisperService, outputDir, clip, verbose); err != nil {
+			fmt.Println("Starting SRT generation...")
+			if err := helper.GenerateSRTCaptions(whisperService, outputDir, clip, whisperModel, startTime, endTime, verbose); err != nil {
+				return err
+			}
+
+			fmt.Println("Starting burn...")
+			if err := helper.BurnCaptions(whisperService, outputDir, clip, &targetWidth, &targetHeight, startTime, endTime, verbose); err != nil {
+				return err
+			}
+
+			fmt.Println("Starting trim and fade...")
+			if err := helper.TrimAndFade(whisperService, outputDir, clip, "00:00", "00:20", &fadeDuration, verbose); err != nil {
 				return err
 			}
 		}
@@ -70,14 +78,4 @@ var captionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(captionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// captionCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// captionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

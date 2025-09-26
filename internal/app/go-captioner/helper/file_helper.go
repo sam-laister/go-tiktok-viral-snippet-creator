@@ -38,5 +38,5 @@ func CreateDirectoryIfNotExists(path string) error {
 		return nil
 	}
 
-	return os.MkdirAll(path, 0755)
+	return os.MkdirAll(path, 0750)
 }

@@ -7,37 +7,52 @@ import (
 )
 
 type ClipDTO struct {
-	SRTCaptionPath *string `json:"SRTCaptionPath"`
-	InputPath      *string `json:"InputPath"`
-	OutputPath     *string `json:"OutputPath"`
+	AudioInputPath          string  `json:"AudioInputPath"`
+	VideoInputPath          string  `json:"VideoInputPath"`
+	SRTCaptionPath          *string `json:"SRTCaptionPath"`
+	CaptionsVideoOutputPath *string `json:"CaptionsVideoOutputPath"`
+	TrimmedVideoOutputPath  *string `json:"TrimmedVideoOutputPath"`
 }
 
 func NewClipDTO(
+	audioInputPath,
+	videoInputPath string,
 	srtCaptionPath,
-	inputPath,
-	outputPath *string,
+	captionsVideoOutputPath,
+	trimmedVideoOutputPath *string,
 ) *ClipDTO {
 	return &ClipDTO{
+		audioInputPath,
+		videoInputPath,
 		srtCaptionPath,
-		inputPath,
-		outputPath,
+		captionsVideoOutputPath,
+		trimmedVideoOutputPath,
 	}
 }
 
-func (clip *ClipDTO) IsValidInputPath() bool {
-	return clip.InputPath != nil || *clip.InputPath != ""
+func (clip *ClipDTO) IsValidAudioInputPath() bool {
+	return clip.AudioInputPath != ""
 }
 
-func (clip *ClipDTO) IsValidOutputPath() bool {
-	return clip.OutputPath != nil && *clip.OutputPath != ""
+func (clip *ClipDTO) IsValidVideoInputPath() bool {
+	return clip.VideoInputPath != ""
+}
+
+func (clip *ClipDTO) IsValidCaptionsVideoOutputPath() bool {
+	return clip.CaptionsVideoOutputPath != nil && *clip.CaptionsVideoOutputPath != ""
 }
 
 func (clip *ClipDTO) IsValidSRTCaptionPath() bool {
 	return clip.SRTCaptionPath != nil && *clip.SRTCaptionPath != ""
 }
 
+func (clip *ClipDTO) IsValidTrimmedVideoOutputPath() bool {
+	return clip.TrimmedVideoOutputPath != nil && *clip.TrimmedVideoOutputPath != ""
+}
+
 func (clip *ClipDTO) PrintTable() error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	const tablePadding = 2
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, tablePadding, ' ', 0)
 
 	printRow := func(field, val string) error {
 		_, err := fmt.Fprintf(w, "%s\t%s\n", field, val)
@@ -61,10 +76,16 @@ func (clip *ClipDTO) PrintTable() error {
 	if err := printRow("SRTCaptionPath", get(clip.SRTCaptionPath)); err != nil {
 		return err
 	}
-	if err := printRow("InputPath", get(clip.InputPath)); err != nil {
+	if err := printRow("AudioInputPath", get(&clip.AudioInputPath)); err != nil {
 		return err
 	}
-	if err := printRow("OutputPath", get(clip.OutputPath)); err != nil {
+	if err := printRow("VideoInputPath", get(&clip.VideoInputPath)); err != nil {
+		return err
+	}
+	if err := printRow("CaptionsVideoOutputPath", get(clip.CaptionsVideoOutputPath)); err != nil {
+		return err
+	}
+	if err := printRow("TrimmedVideoOutputPath", get(clip.TrimmedVideoOutputPath)); err != nil {
 		return err
 	}
 

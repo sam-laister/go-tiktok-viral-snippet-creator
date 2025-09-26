@@ -5,32 +5,26 @@ import (
 	"github.com/sam-laister/tiktok-creator/internal/app/go-captioner/service"
 )
 
-func ClipFromInputPath(path string) *model.ClipDTO {
-	return model.NewClipDTO(nil, &path, nil)
-}
-
-func InputPathArrayToClips(paths []string) []*model.ClipDTO {
-	var clips []*model.ClipDTO
-	for _, path := range paths {
-		clips = append(clips, ClipFromInputPath(path))
-	}
-	return clips
-}
-
 func IsValidClipQueue(clipQueue []*model.ClipDTO) bool {
 	return len(clipQueue) != 0
 }
 
 func GenerateSRTCaptions(
-	whisperService service.WhisperService,
+	scriptService service.ScriptService,
 	outputDir string,
 	clip *model.ClipDTO,
+	model string,
+	startTime,
+	endTime string,
 	verbose bool,
 ) error {
-	srtPath, err := whisperService.Transcribe(
-		*clip.InputPath,
+	srtPath, err := scriptService.Transcribe(
+		clip.AudioInputPath,
 		outputDir,
+		model,
 		verbose,
+		startTime,
+		endTime,
 	)
 
 	if err != nil {
@@ -38,5 +32,63 @@ func GenerateSRTCaptions(
 	}
 
 	clip.SRTCaptionPath = srtPath
+	return nil
+}
+
+func BurnCaptions(
+	scriptService service.ScriptService,
+	outputDir string,
+	clip *model.ClipDTO,
+	targetWidth, targetHeight *int,
+	startTime, endTime string,
+	verbose bool,
+) error {
+	finalOutput, err := scriptService.BurnCaption(
+		*clip.SRTCaptionPath,
+		clip.VideoInputPath,
+		clip.AudioInputPath,
+		outputDir,
+		targetWidth,
+		targetHeight,
+		startTime,
+		endTime,
+		verbose,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	clip.CaptionsVideoOutputPath = finalOutput
+	return nil
+}
+
+func TrimAndFade(
+	scriptService service.ScriptService,
+	outputDir string,
+	clip *model.ClipDTO,
+	startTime, duration string,
+	fadeDuration *int,
+	verbose bool,
+) error {
+	if fadeDuration == nil {
+		fadeDuration = new(int)
+		*fadeDuration = 5
+	}
+
+	trimmedPath, err := scriptService.TrimAndFade(
+		*clip.CaptionsVideoOutputPath,
+		outputDir,
+		startTime,
+		duration,
+		fadeDuration,
+		verbose,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	clip.TrimmedVideoOutputPath = trimmedPath
 	return nil
 }
