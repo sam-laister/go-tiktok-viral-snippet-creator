@@ -52,6 +52,36 @@ func BurnCaptions(
 		return err
 	}
 
-	clip.OutputPath = finalOutput
+	clip.CaptionsVideoOutputPath = finalOutput
+	return nil
+}
+
+func TrimAndFade(
+	scriptService service.ScriptService,
+	outputDir string,
+	clip *model.ClipDTO,
+	startTime, duration string,
+	fadeDuration *int,
+	verbose bool,
+) error {
+	if fadeDuration == nil {
+		fadeDuration = new(int)
+		*fadeDuration = 5
+	}
+
+	trimmedPath, err := scriptService.TrimAndFade(
+		*clip.CaptionsVideoOutputPath,
+		outputDir,
+		startTime,
+		duration,
+		fadeDuration,
+		verbose,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	clip.TrimmedVideoOutputPath = trimmedPath
 	return nil
 }

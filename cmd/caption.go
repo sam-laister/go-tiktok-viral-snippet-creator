@@ -23,6 +23,7 @@ var captionCmd = &cobra.Command{
 
 		var targetWidth = 1080
 		var targetHeight = 1920
+		var fadeDuration = 5
 
 		fmt.Println("Verbose: ", verbose)
 
@@ -31,6 +32,7 @@ var captionCmd = &cobra.Command{
 		clipQueue = append(clipQueue, model.NewClipDTO(
 			audioPath,
 			videoPath,
+			nil,
 			nil,
 			nil,
 		))
@@ -55,6 +57,11 @@ var captionCmd = &cobra.Command{
 
 			fmt.Println("Starting burn...")
 			if err := helper.BurnCaptions(whisperService, outputDir, clip, &targetWidth, &targetHeight, verbose); err != nil {
+				return err
+			}
+
+			fmt.Println("Starting trim and fade...")
+			if err := helper.TrimAndFade(whisperService, outputDir, clip, "00:00", "00:20", &fadeDuration, verbose); err != nil {
 				return err
 			}
 		}

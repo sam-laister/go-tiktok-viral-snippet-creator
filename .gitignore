@@ -31,4 +31,13 @@ go.work.sum
 .idea/
 .vscode/
 
-output/!.keep
+output/*
+!output/.keep
+tmp/*
+!tmp/.keep
+
+sample/
+!sample/bg.mp4
+!sample/audio.mp3
+
+.DS_Store
