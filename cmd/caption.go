@@ -51,12 +51,12 @@ var captionCmd = &cobra.Command{
 			}
 
 			fmt.Println("Starting SRT generation...")
-			if err := helper.GenerateSRTCaptions(whisperService, outputDir, clip, whisperModel, verbose); err != nil {
+			if err := helper.GenerateSRTCaptions(whisperService, outputDir, clip, whisperModel, startTime, endTime, verbose); err != nil {
 				return err
 			}
 
 			fmt.Println("Starting burn...")
-			if err := helper.BurnCaptions(whisperService, outputDir, clip, &targetWidth, &targetHeight, verbose); err != nil {
+			if err := helper.BurnCaptions(whisperService, outputDir, clip, &targetWidth, &targetHeight, startTime, endTime, verbose); err != nil {
 				return err
 			}
 

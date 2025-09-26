@@ -20,13 +20,15 @@ func (w ScriptServiceImpl) Transcribe(
 	outputDir,
 	model string,
 	verbose bool,
+	startTime,
+	endTime string,
 ) (*string, error) {
 	app := "./scripts/generate_captions.py"
 
 	t := time.Now().Unix()
 	outputFile := fmt.Sprintf("%s/%d.ass", outputDir, t)
 
-	args := []string{inputFile, outputFile, "--model", model}
+	args := []string{inputFile, outputFile, "--model", model, "--start", startTime, "--end", endTime}
 	cmd := exec.CommandContext(context.Background(), app, args...)
 
 	if verbose {
@@ -48,6 +50,8 @@ func (w ScriptServiceImpl) BurnCaption(
 	outputDir string,
 	targetWidth,
 	targetHeight *int,
+	startTime,
+	endTime string,
 	verbose bool,
 ) (*string, error) {
 	app := "./scripts/burn_captions.py"
@@ -72,6 +76,10 @@ func (w ScriptServiceImpl) BurnCaption(
 		outputFile,
 		strconv.Itoa(*targetWidth),
 		strconv.Itoa(*targetHeight),
+		"--start",
+		startTime,
+		"--end",
+		endTime,
 	}
 
 	cmd := exec.CommandContext(context.Background(), app, args...)

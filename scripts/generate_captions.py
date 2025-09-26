@@ -6,13 +6,18 @@ Text flows naturally with word wrapping, creating a more readable layout.
 Usage:
     python generate_captions.py input_file output_file.ass [--model base]
         [--max-chars 50] [--font-size 200] [--margins 60,240]
-        [--start 0] [--end 30]
+        [--start 0] [--end 30] [--censor censor.json]
+        [--verbose]
+
+Example:
+    python generate_captions.py input_file output_file.ass --model base --max-chars 50 --font-size 200 --margins 60,240 --start 0 --end 30 --censor censor.json --verbose
 """
 
 import argparse
 import os
 import sys
 import tempfile
+import json
 import ffmpeg
 import whisper
 
@@ -22,14 +27,49 @@ DEFAULT_MAX_CHARS = 12               # characters per line
 DEFAULT_FONT_SIZE = 200
 DEFAULT_MARGIN_X, DEFAULT_MARGIN_Y = 60, 240
 
-def wrap_text_to_lines(words, max_chars_per_line):
+def apply_censor(word: str, censor_map: dict) -> str:
+    # Separate leading and trailing punctuation so we can match core word
+    leading_punct_chars = "([{\"'“‘"
+    trailing_punct_chars = ")]}.!,?;:\"'”’…"
+
+    leading = ""
+    trailing = ""
+
+    # Extract leading punctuation
+    while word and word[0] in leading_punct_chars:
+        leading += word[0]
+        word = word[1:]
+
+    # Extract trailing punctuation (allow multiple, e.g., "word...,")
+    while word and word[-1] in trailing_punct_chars:
+        trailing = word[-1] + trailing
+        word = word[:-1]
+
+    if not word:
+        return leading + trailing
+
+    key = word.lower()
+    replacement = censor_map.get(key, word)
+
+    # Preserve simple capitalization patterns
+    if replacement is not word:
+        if word.isupper():
+            replacement = replacement.upper()
+        elif word[:1].isupper() and word[1:].islower():
+            replacement = replacement[:1].upper() + replacement[1:]
+
+    censored = leading + replacement + trailing
+    print(f"Censoring word: {leading+word+trailing} -> {censored}")
+    return censored
+
+def wrap_text_to_lines(words, max_chars_per_line, censor_map):
     """Wrap words into lines based on character count."""
     lines = []
     current_line = []
     current_chars = 0
 
     for word_info in words:
-        word = word_info["word"].strip()
+        word = apply_censor(word_info["word"].strip(), censor_map)
         if not word:
             continue
 
@@ -40,7 +80,10 @@ def wrap_text_to_lines(words, max_chars_per_line):
                 current_line = []
                 current_chars = 0
 
-        current_line.append(word_info)
+        # Store censored word back for rendering
+        cloned = dict(word_info)
+        cloned["word"] = word
+        current_line.append(cloned)
         current_chars += len(word) + (1 if current_line else 0)
 
     # Add the last line if it has content
@@ -49,7 +92,7 @@ def wrap_text_to_lines(words, max_chars_per_line):
 
     return lines
 
-def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size: int, margin_x: int, margin_y: int):
+def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size: int, margin_x: int, margin_y: int, censor_map: dict):
     """Generate ASS subtitles with dynamic text flow and individual word timing."""
     header = (
         f"[Script Info]\nPlayResX: {VIDEO_W}\nPlayResY: {VIDEO_H}\nScriptType: v4.00+\n\n"
@@ -69,7 +112,7 @@ def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size:
         words.extend(seg.get("words", []))
 
     # Wrap text into lines
-    lines = wrap_text_to_lines(words, max_chars_per_line)
+    lines = wrap_text_to_lines(words, max_chars_per_line, censor_map)
 
     events = []
 
@@ -83,13 +126,10 @@ def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size:
     line_height = int(font_size * 1.4)  # 1.4x font size for line spacing
     max_lines_per_page = (VIDEO_H - 2 * margin_y) // line_height
 
-    print(f"Max lines per page: {max_lines_per_page}")
-    print(f"Lines: {lines}")
 
     # Process lines in pages
     for page_idx in range(0, len(lines), max_lines_per_page):
         page_lines = lines[page_idx:page_idx + max_lines_per_page]
-        print(f"Page lines: {page_lines}")
         # Calculate timing for the entire page
         if page_lines:
             page_start = page_lines[0][0]["start"]
@@ -97,8 +137,6 @@ def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size:
                 page_end = lines[page_idx + max_lines_per_page][0]["start"]
             else:
                 page_end = page_lines[-1][-1]["end"]
-            print(f"Page start: {page_start}")
-            print(f"Page end: {page_end}")
             # Create individual word events that persist until page end
             for line_idx, line_words in enumerate(page_lines):
                 y_pos = margin_y + line_idx * line_height + line_height // 2
@@ -121,7 +159,6 @@ def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size:
                 line_start_x = (VIDEO_W - line_width_pixels) // 2
                 line_start_x = max(margin_x, line_start_x)  # Ensure we don't go negative
 
-                print(f"Line: '{total_line_text}' - width: {line_width_pixels:.0f}px, start_x: {line_start_x:.0f}")
 
                 # Create individual word events
                 current_x = line_start_x
@@ -136,8 +173,6 @@ def write_dynamic_ass(result, out_path: str, max_chars_per_line: int, font_size:
 
                     word_width = len(word) * char_width
                     word_center_x = current_x + word_width // 2
-
-                    print(f"Word: '{word}' at position {word_center_x:.0f},{y_pos}")
 
                     # Create event for this individual word appearing and persisting until page end
                     events.append(
@@ -167,6 +202,8 @@ def main():
                        help="Start time in seconds to begin transcription (default: 0)")
     parser.add_argument("--end", type=float, default=30.0,
                        help="End time in seconds for transcription (default: 30)")
+    parser.add_argument("--censor", default=os.path.join(os.path.dirname(__file__), "censor.json"),
+                       help="Path to censor JSON mapping {word: replacement}")
     args = parser.parse_args()
 
     if not os.path.isfile(args.input_file):
@@ -197,6 +234,16 @@ def main():
         .run(quiet=False)
     )
 
+    # Load censor map
+    censor_map = {}
+    try:
+        if os.path.isfile(args.censor):
+            with open(args.censor, "r", encoding="utf-8") as cf:
+                censor_map = json.load(cf)
+            print(f"Loaded censor map: {censor_map}")
+    except Exception as e:
+        print(f"Warning: failed to load censor map: {e}")
+
     print(f"Loading Whisper model '{args.model}'…")
     model = whisper.load_model(args.model)
 
@@ -205,7 +252,7 @@ def main():
 
     print(f"Writing dynamic ASS subtitles to {args.output_file}")
     print(f"Settings: max_chars={args.max_chars}, font_size={args.font_size}, margins={margin_x},{margin_y}")
-    write_dynamic_ass(result, args.output_file, args.max_chars, args.font_size, margin_x, margin_y)
+    write_dynamic_ass(result, args.output_file, args.max_chars, args.font_size, margin_x, margin_y, censor_map)
 
     # Cleanup
     try:

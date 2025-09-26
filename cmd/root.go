@@ -14,6 +14,8 @@ var videoPath string
 var verbose bool
 var outputDir string
 var whisperModel string
+var startTime string
+var endTime string
 
 var rootCmd = &cobra.Command{
 	Use:   "tiktok-creator",
@@ -36,6 +38,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", "output", "Output directory")
 	rootCmd.PersistentFlags().StringVarP(&whisperModel, "model", "m", "base", "Transcription model (small,base,large)")
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "Verbose output")
+	rootCmd.PersistentFlags().StringVarP(&startTime, "startTime", "s", "0", "Start time")
+	rootCmd.PersistentFlags().StringVarP(&endTime, "endTime", "e", "30", "End time")
 
 	rootCmd.MarkFlagRequired("path")
 

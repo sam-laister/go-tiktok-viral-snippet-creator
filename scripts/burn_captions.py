@@ -2,7 +2,8 @@
 """
 Burn ASS captions into a video using ffmpeg.
 Usage:
-    python burn_captions.py captions_file.ass video_file audio_file output_file
+    python burn_captions.py captions_file.ass video_file audio_file output_file [target_width] [target_height]
+        [--start 0] [--end 30]
 """
 
 import argparse
@@ -18,6 +19,8 @@ def main():
     parser.add_argument("output_file", help="Path to write output video to")
     parser.add_argument("target_width", nargs="?", type=int, default=1080)
     parser.add_argument("target_height", nargs="?", type=int, default=1920)
+    parser.add_argument("--start", type=float, default=0.0, help="Start time in seconds (default: 0)")
+    parser.add_argument("--end", type=float, default=30.0, help="End time in seconds (default: 30)")
     args = parser.parse_args()
 
     if not os.path.isfile(args.captions_file):
@@ -26,6 +29,13 @@ def main():
         sys.exit(f"Error: {args.video_file} does not exist.")
     if not os.path.isfile(args.audio_file):
         sys.exit(f"Error: {args.audio_file} does not exist.")
+
+    # Validate times and compute duration
+    if args.end <= args.start:
+        sys.exit("Error: --end must be greater than --start")
+    clip_duration = args.end - args.start
+
+    print(f"Clip duration: {clip_duration}s")
 
     target_aspect = args.target_width / args.target_height
 
@@ -44,17 +54,23 @@ def main():
         crop_x, crop_y = 0, (in_h - crop_h)//2
 
     video = (
-        ffmpeg.input(args.video_file)
+        ffmpeg
+        .input(args.video_file)
+        .video
         .filter("crop", crop_w, crop_h, crop_x, crop_y)
         .filter("scale", args.target_width, args.target_height)
         .filter("ass", args.captions_file)
     )
-    audio = ffmpeg.input(args.audio_file)
+    audio = (
+        ffmpeg
+        .input(args.audio_file, ss=args.start, t=clip_duration)
+        .audio
+    )
 
     (
         ffmpeg
         .output(video, audio, args.output_file, acodec='aac',
-                audio_bitrate='320k')
+                audio_bitrate='320k', shortest=None)
         .overwrite_output()
         .run()
     )

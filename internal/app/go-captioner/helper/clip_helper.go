@@ -14,6 +14,8 @@ func GenerateSRTCaptions(
 	outputDir string,
 	clip *model.ClipDTO,
 	model string,
+	startTime,
+	endTime string,
 	verbose bool,
 ) error {
 	srtPath, err := scriptService.Transcribe(
@@ -21,6 +23,8 @@ func GenerateSRTCaptions(
 		outputDir,
 		model,
 		verbose,
+		startTime,
+		endTime,
 	)
 
 	if err != nil {
@@ -36,6 +40,7 @@ func BurnCaptions(
 	outputDir string,
 	clip *model.ClipDTO,
 	targetWidth, targetHeight *int,
+	startTime, endTime string,
 	verbose bool,
 ) error {
 	finalOutput, err := scriptService.BurnCaption(
@@ -45,6 +50,8 @@ func BurnCaptions(
 		outputDir,
 		targetWidth,
 		targetHeight,
+		startTime,
+		endTime,
 		verbose,
 	)
 
