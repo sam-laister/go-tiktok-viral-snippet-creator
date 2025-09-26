@@ -25,6 +25,9 @@ Flags:
 Use "tiktok-creator [command] --help" for more information about a command.
 ```
 
+https://github.com/user-attachments/assets/c266e010-7988-4736-b483-dac5c9dc1ee4
+
+
 ### Dependencies
 
 Ensure Go is installed. https://go.dev/learn/
