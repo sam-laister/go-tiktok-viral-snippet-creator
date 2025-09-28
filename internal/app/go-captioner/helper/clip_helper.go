@@ -1,94 +1,54 @@
 package helper
 
 import (
+	"github.com/sam-laister/tiktok-creator/ent"
 	"github.com/sam-laister/tiktok-creator/internal/app/go-captioner/model"
-	"github.com/sam-laister/tiktok-creator/internal/app/go-captioner/service"
 )
 
 func IsValidClipQueue(clipQueue []*model.ClipDTO) bool {
 	return len(clipQueue) != 0
 }
 
-func GenerateSRTCaptions(
-	scriptService service.ScriptService,
-	outputDir string,
-	clip *model.ClipDTO,
-	model string,
-	startTime,
-	endTime string,
-	verbose bool,
-) error {
-	srtPath, err := scriptService.Transcribe(
-		clip.AudioInputPath,
-		outputDir,
-		model,
-		verbose,
-		startTime,
-		endTime,
-	)
-
-	if err != nil {
-		return err
+func ClipToDTO(c *ent.Clip) *model.ClipDTO {
+	var id *int
+	if c.ID != 0 {
+		id = &c.ID
 	}
 
-	clip.SRTCaptionPath = srtPath
-	return nil
+	var hash *string
+	if c.Hash != "" {
+		hash = &c.Hash
+	}
+
+	return &model.ClipDTO{
+		AudioInputPath:          c.AudioPath,
+		VideoInputPath:          c.VideoPath,
+		SRTCaptionPath:          c.GenCaptionsPath,
+		CaptionsVideoOutputPath: c.GenRawVideoPath,
+		TrimmedVideoOutputPath:  c.GenTrimmedVideoPath,
+		ID:                      id,
+		Hash:                    hash,
+	}
 }
 
-func BurnCaptions(
-	scriptService service.ScriptService,
-	outputDir string,
-	clip *model.ClipDTO,
-	targetWidth, targetHeight *int,
-	startTime, endTime string,
-	verbose bool,
-) error {
-	finalOutput, err := scriptService.BurnCaption(
-		*clip.SRTCaptionPath,
-		clip.VideoInputPath,
-		clip.AudioInputPath,
-		outputDir,
-		targetWidth,
-		targetHeight,
-		startTime,
-		endTime,
-		verbose,
-	)
-
-	if err != nil {
-		return err
+func DTOToClip(dto *model.ClipDTO) *ent.Clip {
+	var id int
+	if dto.ID != nil {
+		id = *dto.ID
 	}
 
-	clip.CaptionsVideoOutputPath = finalOutput
-	return nil
-}
-
-func TrimAndFade(
-	scriptService service.ScriptService,
-	outputDir string,
-	clip *model.ClipDTO,
-	startTime, duration string,
-	fadeDuration *int,
-	verbose bool,
-) error {
-	if fadeDuration == nil {
-		fadeDuration = new(int)
-		*fadeDuration = 5
+	var hash string
+	if dto.Hash != nil {
+		hash = *dto.Hash
 	}
 
-	trimmedPath, err := scriptService.TrimAndFade(
-		*clip.CaptionsVideoOutputPath,
-		outputDir,
-		startTime,
-		duration,
-		fadeDuration,
-		verbose,
-	)
-
-	if err != nil {
-		return err
+	return &ent.Clip{
+		ID:                  id,
+		Hash:                hash,
+		AudioPath:           dto.AudioInputPath,
+		VideoPath:           dto.VideoInputPath,
+		GenCaptionsPath:     dto.SRTCaptionPath,
+		GenRawVideoPath:     dto.CaptionsVideoOutputPath,
+		GenTrimmedVideoPath: dto.TrimmedVideoOutputPath,
 	}
-
-	clip.TrimmedVideoOutputPath = trimmedPath
-	return nil
 }

@@ -12,6 +12,8 @@ type ClipDTO struct {
 	SRTCaptionPath          *string `json:"SRTCaptionPath"`
 	CaptionsVideoOutputPath *string `json:"CaptionsVideoOutputPath"`
 	TrimmedVideoOutputPath  *string `json:"TrimmedVideoOutputPath"`
+	ID                      *int    `json:"ID"`
+	Hash                    *string `json:"Hash"`
 }
 
 func NewClipDTO(
@@ -19,7 +21,10 @@ func NewClipDTO(
 	videoInputPath string,
 	srtCaptionPath,
 	captionsVideoOutputPath,
-	trimmedVideoOutputPath *string,
+	trimmedVideoOutputPath,
+	hash *string,
+	id *int,
+
 ) *ClipDTO {
 	return &ClipDTO{
 		audioInputPath,
@@ -27,6 +32,8 @@ func NewClipDTO(
 		srtCaptionPath,
 		captionsVideoOutputPath,
 		trimmedVideoOutputPath,
+		id,
+		hash,
 	}
 }
 

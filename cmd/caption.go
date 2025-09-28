@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/sam-laister/tiktok-creator/internal/app/go-captioner/helper"
 	"github.com/sam-laister/tiktok-creator/internal/app/go-captioner/model"
@@ -13,55 +14,133 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// captionCmd represents the caption command
+var captionsOptions = model.NewCaptionOptions()
+
 var captionCmd = &cobra.Command{
 	Use:   "caption",
-	Short: "Generates captions for an audio file.",
-	Long:  `Generates captions for an audio file.`,
+	Short: "Generates on demand captions for an audio file/directory",
+	Long:  `Captions doesn't use an external database and instead acts as a purely I/O caption generator. Files are generated using timestamp and not metadata.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		whisperService := service.NewScriptServiceImpl()
 
-		var targetWidth = 1080
-		var targetHeight = 1920
-		var fadeDuration = 5
-
-		fmt.Println("Verbose: ", verbose)
+		fmt.Println("Verbose: ", captionsOptions.Verbose)
 
 		var clipQueue []*model.ClipDTO
 
-		clipQueue = append(clipQueue, model.NewClipDTO(
-			audioPath,
-			videoPath,
-			nil,
-			nil,
-			nil,
-		))
+		if captionsOptions.IsDirectory {
+			if !helper.IsDirectory(captionsOptions.AudioPath) || !helper.IsDirectory(captionsOptions.VideoPath) {
+				return errors.New(fmt.Sprintf(
+					"either %s or %s is not a directory",
+					captionsOptions.AudioPath,
+					captionsOptions.VideoPath,
+				))
+			}
+
+			audios, err := helper.GetFilesInDirectory(captionsOptions.AudioPath)
+			if err != nil {
+				return err
+			}
+
+			videos, err := helper.GetFilesInDirectory(captionsOptions.VideoPath)
+			if err != nil {
+				return err
+			}
+
+			// Random video with each audio
+			for _, audio := range audios {
+				clipQueue = append(clipQueue, model.NewClipDTO(
+					audio,
+					videos[rand.Intn(len(videos))],
+					nil,
+					nil,
+					nil,
+					nil,
+					nil,
+				))
+			}
+
+		} else {
+			clipQueue = append(clipQueue, model.NewClipDTO(
+				captionsOptions.AudioPath,
+				captionsOptions.VideoPath,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			))
+		}
 
 		if !helper.IsValidClipQueue(clipQueue) {
 			return errors.New("found no files to analyze")
 		}
 
-		if err := helper.CreateDirectoryIfNotExists(outputDir); err != nil {
-			return errors.New(fmt.Sprintf("couldn't create output directory: %s", outputDir))
+		if err := helper.CreateDirectoryIfNotExists(captionsOptions.OutputDir); err != nil {
+			return errors.New(fmt.Sprintf(
+				"couldn't create output directory: %s",
+				captionsOptions.OutputDir,
+			))
 		}
 
-		for _, clip := range clipQueue {
+		for index, clip := range clipQueue {
+			fmt.Println(fmt.Sprintf("Processing batch %d/%d", index, len(clipQueue)))
+
 			if !clip.IsValidAudioInputPath() {
 				return errors.New(fmt.Sprintf("%s is not a valid input path", clip.AudioInputPath))
 			}
 
 			fmt.Println("Starting SRT generation...")
-			if err := helper.GenerateSRTCaptions(whisperService, outputDir, clip, whisperModel, startTime, endTime, verbose); err != nil {
+			if err := whisperService.RunGenerateSRTCaptionsOnClip(
+				captionsOptions.OutputDir,
+				clip,
+				captionsOptions.WhisperModel,
+				captionsOptions.StartTime,
+				captionsOptions.EndTime,
+				captionsOptions.Verbose,
+			); err != nil {
 				return err
 			}
 
+			if !captionsOptions.NoInteract {
+				if err := clip.PrintTable(); err != nil {
+					return err
+				}
+
+				if _, err := helper.WaitForOptionalEdits(); err != nil {
+					return err
+				}
+			}
+
 			fmt.Println("Starting burn...")
-			if err := helper.BurnCaptions(whisperService, outputDir, clip, &targetWidth, &targetHeight, startTime, endTime, verbose); err != nil {
+			if err := whisperService.RunBurnCaptionsOnClip(
+				captionsOptions.OutputDir,
+				clip,
+				&captionsOptions.Width,
+				&captionsOptions.Height,
+				captionsOptions.StartTime,
+				captionsOptions.EndTime,
+				captionsOptions.Verbose,
+			); err != nil {
 				return err
 			}
 
 			fmt.Println("Starting trim and fade...")
-			if err := helper.TrimAndFade(whisperService, outputDir, clip, "00:00", "00:20", &fadeDuration, verbose); err != nil {
+
+			duration, err := helper.DurationFromStartAndEnd(
+				captionsOptions.StartTime,
+				captionsOptions.EndTime,
+			)
+			if err != nil {
+				return err
+			}
+
+			if err := whisperService.RunTrimAndFadeOnClip(
+				captionsOptions.OutputDir,
+				clip,
+				duration,
+				&captionsOptions.FadeDuration,
+				captionsOptions.Verbose,
+			); err != nil {
 				return err
 			}
 		}
@@ -77,5 +156,19 @@ var captionCmd = &cobra.Command{
 }
 
 func init() {
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.AudioPath, "audioPath", "a", "", "Path to audio")
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.VideoPath, "videoPath", "v", "", "Path to video")
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.OutputDir, "output", "o", "output", "Output directory")
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.WhisperModel, "model", "m", "base", "Transcription model (small,base,large)")
+	captionCmd.PersistentFlags().BoolVar(&captionsOptions.Verbose, "verbose", false, "Verbose output")
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.StartTime, "startTime", "s", "0", "Start time")
+	captionCmd.PersistentFlags().StringVarP(&captionsOptions.EndTime, "endTime", "e", "30", "End time")
+	captionCmd.PersistentFlags().BoolVarP(&captionsOptions.IsDirectory, "directoryMode", "D", false, "Enabl directory mode. Both audio path and video path must be directories when using this mode")
+	captionCmd.PersistentFlags().BoolVarP(&captionsOptions.NoInteract, "no-interact", "n", false, "Disable interactive mode")
+
+	captionCmd.MarkFlagRequired("path")
+
+	captionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
 	rootCmd.AddCommand(captionCmd)
 }

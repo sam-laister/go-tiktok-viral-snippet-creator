@@ -248,7 +248,7 @@ def main():
     model = whisper.load_model(args.model)
 
     print("Transcribing trimmed segment with word timestamps…")
-    result = model.transcribe(tmp_audio, word_timestamps=True, verbose=True)
+    result = model.transcribe(tmp_audio, word_timestamps=True, language="en", verbose=True)
 
     print(f"Writing dynamic ASS subtitles to {args.output_file}")
     print(f"Settings: max_chars={args.max_chars}, font_size={args.font_size}, margins={margin_x},{margin_y}")

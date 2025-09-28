@@ -21,7 +21,7 @@ def main():
     parser.add_argument("target_width", nargs="?", type=int, default=1080)
     parser.add_argument("target_height", nargs="?", type=int, default=1920)
     parser.add_argument("--start", type=float, default=0.0, help="Start time in seconds (default: 0)")
-    parser.add_argument("--end", type=float, default=30.0, help="End time in seconds (default: 30)")
+    parser.add_argument("--end", type=float, default=60.0, help="End time in seconds (default: 60)")
     args = parser.parse_args()
 
     if not os.path.isfile(args.captions_file):
